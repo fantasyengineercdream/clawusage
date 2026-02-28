@@ -35,16 +35,16 @@ not_a_container_sandbox: true
 ### 1) Apply hardlock (elevated)
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\apply-openclaw-hardlock-elevated.ps1 \
-  -WorkspacePath "D:\path\to\workspace" \
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\apply-openclaw-hardlock-elevated.ps1 `
+  -WorkspacePath "D:\path\to\workspace" `
   -StatePath "D:\path\to\workspace\.openclaw-state"
 ```
 
 ### 2) Verify setup
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-openclaw-hardlock.ps1 \
-  -WorkspacePath "D:\path\to\workspace" \
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-openclaw-hardlock.ps1 `
+  -WorkspacePath "D:\path\to\workspace" `
   -StatePath "D:\path\to\workspace\.openclaw-state"
 ```
 
