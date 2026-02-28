@@ -19,13 +19,12 @@ function Get-ClawHubCommand {
 }
 
 function Invoke-ClawHub {
-    param([string[]]$Args)
+    param([string[]]$Arguments)
     $runner = Get-ClawHubCommand
-    $line = ($Args -join " ")
     if ($runner -eq "clawhub") {
-        & clawhub @Args
+        & clawhub @Arguments
     } else {
-        & npx clawhub @Args
+        & npx clawhub @Arguments
     }
 }
 
@@ -38,20 +37,20 @@ if (-not (Test-Path -LiteralPath $SkillPath)) {
 }
 
 Write-Host "Checking ClawHub login..."
-Invoke-ClawHub -Args @("whoami")
+Invoke-ClawHub -Arguments @("whoami")
 if ($LASTEXITCODE -ne 0) {
     if (-not $LoginIfNeeded) {
         throw "Not logged in. Run: clawhub login (or re-run with -LoginIfNeeded)."
     }
     Write-Host "Running login flow..."
-    Invoke-ClawHub -Args @("login")
+    Invoke-ClawHub -Arguments @("login")
     if ($LASTEXITCODE -ne 0) {
         throw "Login failed."
     }
 }
 
 Write-Host "Publishing skill..."
-Invoke-ClawHub -Args @("publish", "$SkillPath", "--slug", "$Slug", "--name", "$Name", "--version", "$Version", "--tags", "$Tags", "--changelog", "$Changelog")
+Invoke-ClawHub -Arguments @("publish", "$SkillPath", "--slug", "$Slug", "--name", "$Name", "--version", "$Version", "--tags", "$Tags", "--changelog", "$Changelog")
 if ($LASTEXITCODE -ne 0) {
     throw "ClawHub publish failed."
 }
