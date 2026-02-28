@@ -1,0 +1,11 @@
+# Runtime state
+.openclaw-state/
+.publish-repo/
+
+# Build outputs
+openclaw-windows-hardlock.zip
+
+# OS/editor noise
+Thumbs.db
+.DS_Store
+*.log
