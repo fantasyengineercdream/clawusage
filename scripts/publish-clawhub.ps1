@@ -12,6 +12,23 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Get-ClawHubCommand {
+    $cmd = Get-Command clawhub -ErrorAction SilentlyContinue
+    if ($null -ne $cmd) { return "clawhub" }
+    return "npx clawhub"
+}
+
+function Invoke-ClawHub {
+    param([string[]]$Args)
+    $runner = Get-ClawHubCommand
+    $line = ($Args -join " ")
+    if ($runner -eq "clawhub") {
+        & clawhub @Args
+    } else {
+        & npx clawhub @Args
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($SkillPath)) {
     $SkillPath = Join-Path (Split-Path -Parent $PSScriptRoot) "skills\clawusage"
 }
@@ -21,20 +38,20 @@ if (-not (Test-Path -LiteralPath $SkillPath)) {
 }
 
 Write-Host "Checking ClawHub login..."
-& npx clawhub whoami
+Invoke-ClawHub -Args @("whoami")
 if ($LASTEXITCODE -ne 0) {
     if (-not $LoginIfNeeded) {
-        throw "Not logged in. Run: npx clawhub login (or re-run with -LoginIfNeeded)."
+        throw "Not logged in. Run: clawhub login (or re-run with -LoginIfNeeded)."
     }
     Write-Host "Running login flow..."
-    & npx clawhub login
+    Invoke-ClawHub -Args @("login")
     if ($LASTEXITCODE -ne 0) {
         throw "Login failed."
     }
 }
 
 Write-Host "Publishing skill..."
-& npx clawhub publish "$SkillPath" --slug "$Slug" --name "$Name" --version "$Version" --tags "$Tags" --changelog "$Changelog"
+Invoke-ClawHub -Args @("publish", "$SkillPath", "--slug", "$Slug", "--name", "$Name", "--version", "$Version", "--tags", "$Tags", "--changelog", "$Changelog")
 if ($LASTEXITCODE -ne 0) {
     throw "ClawHub publish failed."
 }
