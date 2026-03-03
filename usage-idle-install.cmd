@@ -1,4 +1,8 @@
 @echo off
 setlocal
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-idle-usage-task.ps1" %*
+set IDLE=%~1
+if "%IDLE%"=="" set IDLE=10
+set INTERVAL=%~2
+if "%INTERVAL%"=="" set INTERVAL=5
+call "%~dp0clawusage.cmd" auto on %IDLE% --interval %INTERVAL%
 endlocal

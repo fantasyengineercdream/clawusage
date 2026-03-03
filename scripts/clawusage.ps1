@@ -29,7 +29,7 @@ function Show-Help {
     Write-Host "  clawusage now"
     Write-Host "  clawusage status"
     Write-Host "  clawusage lang [english|chinese]"
-    Write-Host "  clawusage auto on [minutes] [--interval N]"
+    Write-Host "  clawusage auto on [minutes] [--interval N]   (default interval: 5)"
     Write-Host "  clawusage auto set <minutes>"
     Write-Host "  clawusage auto off"
     Write-Host "  clawusage auto status"
@@ -63,27 +63,43 @@ function Ensure-ConfigProperty {
 
 function Get-Config {
     $config = $null
+    $needsPersist = $false
     if (Test-Path -LiteralPath $configPath) {
         try { $config = (Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json) } catch {}
     }
     if ($null -eq $config) {
         $config = [pscustomobject]@{
             idleMinutes = 10
-            intervalMinutes = 1
+            intervalMinutes = 5
             includeLocalTokens = $true
             provider = "openai-codex"
             language = "english"
+            configVersion = 2
             taskName = $taskName
         }
     }
 
     Ensure-ConfigProperty -Config $config -Name "idleMinutes" -DefaultValue 10
-    Ensure-ConfigProperty -Config $config -Name "intervalMinutes" -DefaultValue 1
+    Ensure-ConfigProperty -Config $config -Name "intervalMinutes" -DefaultValue 5
     Ensure-ConfigProperty -Config $config -Name "includeLocalTokens" -DefaultValue $true
     Ensure-ConfigProperty -Config $config -Name "provider" -DefaultValue "openai-codex"
     Ensure-ConfigProperty -Config $config -Name "language" -DefaultValue "english"
+    Ensure-ConfigProperty -Config $config -Name "configVersion" -DefaultValue 1
     Ensure-ConfigProperty -Config $config -Name "taskName" -DefaultValue $taskName
+
+    # One-time migration: old versions defaulted to 1m checks, which is too noisy.
+    if ([int]$config.configVersion -lt 2) {
+        if ([int]$config.intervalMinutes -eq 1) {
+            $config.intervalMinutes = 5
+        }
+        $config.configVersion = 2
+        $needsPersist = $true
+    }
+
     $config.language = Normalize-Language -Language ([string]$config.language)
+    if ($needsPersist) {
+        $config | ConvertTo-Json | Set-Content -LiteralPath $configPath -Encoding UTF8
+    }
     return $config
 }
 
@@ -154,7 +170,7 @@ function Show-Status {
 }
 
 function Parse-Interval {
-    param([string[]]$Tokens, [int]$Default = 1)
+    param([string[]]$Tokens, [int]$Default = 5)
     $interval = $Default
     for ($i = 0; $i -lt $Tokens.Count; $i++) {
         if ($Tokens[$i] -eq "--interval" -and ($i + 1) -lt $Tokens.Count) {

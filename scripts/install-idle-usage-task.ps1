@@ -2,7 +2,7 @@
 param(
     [string]$TaskName = "OpenClawIdleUsagePopup",
     [int]$IdleMinutes = 10,
-    [int]$IntervalMinutes = 1,
+    [int]$IntervalMinutes = 5,
     [string]$Provider = "openai-codex",
     [string]$SessionsFile = "$env:USERPROFILE\.openclaw\agents\main\sessions\sessions.json",
     [string]$StateFile = "",
@@ -42,6 +42,7 @@ function Quote-TaskArg {
 }
 
 $argParts = @(
+    "-WindowStyle Hidden",
     "-NoProfile",
     "-ExecutionPolicy Bypass",
     ("-File {0}" -f (Quote-TaskArg -Value $idleScript)),
@@ -58,7 +59,7 @@ $taskArgs = $argParts -join " "
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $taskArgs
 $trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 3650)
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew
+$settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description "OpenClaw idle usage popup monitor (no model inference)." -Force | Out-Null

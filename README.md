@@ -51,6 +51,11 @@ Run from this folder:
 - `clawusage auto status`: task state and schedule
 - `clawusage -help | --help | -h`: show help
 
+Defaults:
+
+- Auto reminder is `off` until user enables it.
+- If enabled without `--interval`, check interval defaults to `5` minutes.
+
 Language behavior:
 
 - `lang` sets the preferred chat response language (`english` or `chinese`).
