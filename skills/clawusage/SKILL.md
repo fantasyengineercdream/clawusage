@@ -30,7 +30,7 @@ Supported arguments:
 Execution rules:
 
 1. Parse user input after `/clawusage`.
-2. If no argument is provided, default to `status`.
+2. If no argument is provided, default to `help`.
 3. Run exactly one local command via shell:
    - `& clawusage.cmd <args>`
 4. Do not run unrelated commands.

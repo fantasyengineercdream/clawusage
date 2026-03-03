@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Args
@@ -34,6 +34,13 @@ function Show-Help {
     Write-Host "  clawusage auto off"
     Write-Host "  clawusage auto status"
     Write-Host "  clawusage -help | --help | -h"
+}
+
+function Show-FirstRunLanguageHint {
+    Write-Host ""
+    Write-Host "Language setup:"
+    Write-Host "  EN: use 'clawusage lang english' or 'clawusage lang chinese'."
+    Write-Host "  ZH-CN: use 'clawusage lang chinese' to switch to Chinese output."
 }
 
 function Normalize-Language {
@@ -75,6 +82,7 @@ function Get-Config {
             provider = "openai-codex"
             language = "english"
             configVersion = 2
+            onboardingShown = $false
             taskName = $taskName
         }
     }
@@ -85,6 +93,7 @@ function Get-Config {
     Ensure-ConfigProperty -Config $config -Name "provider" -DefaultValue "openai-codex"
     Ensure-ConfigProperty -Config $config -Name "language" -DefaultValue "english"
     Ensure-ConfigProperty -Config $config -Name "configVersion" -DefaultValue 1
+    Ensure-ConfigProperty -Config $config -Name "onboardingShown" -DefaultValue $false
     Ensure-ConfigProperty -Config $config -Name "taskName" -DefaultValue $taskName
 
     # One-time migration: old versions defaulted to 1m checks, which is too noisy.
@@ -203,27 +212,47 @@ if (-not (Test-Path -LiteralPath $workerScript)) {
     throw "Missing script: $workerScript"
 }
 
-$cmd = if ($Args.Count -gt 0) { $Args[0].ToLowerInvariant() } else { "status" }
+$cmd = if ($Args.Count -gt 0) { $Args[0].ToLowerInvariant() } else { "help" }
+$config = Get-Config
 
 switch ($cmd) {
     "help" {
         Show-Help
+        if (-not [bool]$config.onboardingShown) {
+            Show-FirstRunLanguageHint
+            $config.onboardingShown = $true
+            Save-Config -Config $config
+        }
         exit 0
     }
     "-help" {
         Show-Help
+        if (-not [bool]$config.onboardingShown) {
+            Show-FirstRunLanguageHint
+            $config.onboardingShown = $true
+            Save-Config -Config $config
+        }
         exit 0
     }
     "--help" {
         Show-Help
+        if (-not [bool]$config.onboardingShown) {
+            Show-FirstRunLanguageHint
+            $config.onboardingShown = $true
+            Save-Config -Config $config
+        }
         exit 0
     }
     "-h" {
         Show-Help
+        if (-not [bool]$config.onboardingShown) {
+            Show-FirstRunLanguageHint
+            $config.onboardingShown = $true
+            Save-Config -Config $config
+        }
         exit 0
     }
     "now" {
-        $config = Get-Config
         $json = $false
         if ($Args.Count -gt 1 -and $Args[1] -eq "--json") {
             $json = $true
@@ -236,12 +265,10 @@ switch ($cmd) {
         exit 0
     }
     "status" {
-        $config = Get-Config
         & $monitorScript -IncludeLocalTokens -Language $config.language
         exit 0
     }
     "lang" {
-        $config = Get-Config
         if ($Args.Count -lt 2) {
             Write-Host ("language: {0}" -f [string]$config.language)
             exit 0
@@ -249,6 +276,7 @@ switch ($cmd) {
 
         $language = Normalize-Language -Language $Args[1]
         $config.language = $language
+        $config.onboardingShown = $true
         Save-Config -Config $config
 
         $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -262,12 +290,16 @@ switch ($cmd) {
     "auto" {
         if ($Args.Count -lt 2) {
             Show-Help
+            if (-not [bool]$config.onboardingShown) {
+                Show-FirstRunLanguageHint
+                $config.onboardingShown = $true
+                Save-Config -Config $config
+            }
             exit 1
         }
         $sub = $Args[1].ToLowerInvariant()
         switch ($sub) {
             "on" {
-                $config = Get-Config
                 if ($Args.Count -ge 3) {
                     $tmp = Parse-MinutesToken -Token $Args[2] -Default 0
                     if ($tmp -ge 1) {
@@ -288,7 +320,6 @@ switch ($cmd) {
                 if ($minutes -lt 1) {
                     throw "Idle minutes must be an integer >= 1."
                 }
-                $config = Get-Config
                 $config.idleMinutes = $minutes
                 Save-Config -Config $config
                 $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -311,12 +342,23 @@ switch ($cmd) {
             }
             default {
                 Show-Help
+                if (-not [bool]$config.onboardingShown) {
+                    Show-FirstRunLanguageHint
+                    $config.onboardingShown = $true
+                    Save-Config -Config $config
+                }
                 exit 1
             }
         }
     }
     default {
         Show-Help
+        if (-not [bool]$config.onboardingShown) {
+            Show-FirstRunLanguageHint
+            $config.onboardingShown = $true
+            Save-Config -Config $config
+        }
         exit 1
     }
 }
+

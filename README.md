@@ -55,6 +55,8 @@ Defaults:
 
 - Auto reminder is `off` until user enables it.
 - If enabled without `--interval`, check interval defaults to `5` minutes.
+- Running `clawusage` with no args defaults to `help`.
+- On first help display, a bilingual language setup tip is shown once.
 
 Language behavior:
 
