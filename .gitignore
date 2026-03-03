@@ -3,7 +3,7 @@
 .publish-repo/
 
 # Build outputs
-openclaw-windows-hardlock.zip
+clawusage.zip
 
 # OS/editor noise
 Thumbs.db

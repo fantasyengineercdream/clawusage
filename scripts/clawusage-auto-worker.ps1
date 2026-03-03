@@ -1,7 +1,9 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [int]$IdleMinutes = 10,
     [string]$Provider = "openai-codex",
+    [ValidateSet("english", "chinese")]
+    [string]$Language = "english",
     [string]$SessionsFile = "$env:USERPROFILE\.openclaw\agents\main\sessions\sessions.json",
     [string]$StateFile = "",
     [switch]$IncludeLocalTokens
@@ -239,9 +241,11 @@ $rows = Get-UsageRows -ProviderName $Provider
 $idleNow = [datetimeoffset]::Now - $latest.UpdatedAtLocal
 $parts = @()
 $parts += "ClawUsage Idle Alert"
+$parts += ("Language mode: {0}" -f $Language)
 $parts += ("Threshold: {0}m" -f $IdleMinutes)
 $parts += ("Last activity: {0}" -f $latest.UpdatedAtLocal.ToString('yyyy-MM-dd HH:mm'))
 $parts += ("Idle now: {0}" -f (Format-IdleDuration -Span $idleNow))
+
 if (($rows | Measure-Object).Count -gt 0) {
     $parts += ""
     $parts += "Quota:"
@@ -254,6 +258,7 @@ if (($rows | Measure-Object).Count -gt 0) {
         $parts += ("- {0}: {1}% used, {2}% left, resets {3}{4}" -f $r.Label, $r.Used, $r.Left, $r.ResetAt.ToString('MM-dd HH:mm'), $note)
     }
 }
+
 if ($IncludeLocalTokens) {
     $t = Get-LocalTokenSummary
     $parts += ""
@@ -261,6 +266,7 @@ if ($IncludeLocalTokens) {
     $parts += ("- today: {0:N0}" -f $t.TodayTokens)
     $parts += ("- 7d: {0:N0}" -f $t.Last7DaysTokens)
 }
+
 $message = ($parts -join "`n")
 
 $sendRes = Invoke-OpenClaw -Arguments @("message", "send", "--channel", $delivery.Channel, "--account", $delivery.Account, "--target", $delivery.Target, "-m", $message, "--silent", "--json") -CaptureOutput
@@ -284,6 +290,7 @@ if (-not [string]::IsNullOrWhiteSpace($sendOutput)) {
     lastNotifiedSessionKey = $latest.SessionKey
     lastNotifiedAt = [datetimeoffset]::Now.ToString("o")
     idleMinutes = $IdleMinutes
+    language = $Language
     channel = $delivery.Channel
     target = $delivery.Target
     account = $delivery.Account

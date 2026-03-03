@@ -18,29 +18,73 @@ $sessionsPath = "$env:USERPROFILE\.openclaw\agents\main\sessions\sessions.json"
 if (-not (Test-Path -LiteralPath $stateDir)) {
     New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
 }
+if ($null -eq $Args) {
+    $Args = @()
+}
 
 function Show-Help {
     Write-Host "clawusage (KISS mode)"
     Write-Host ""
     Write-Host "Usage:"
     Write-Host "  clawusage now"
+    Write-Host "  clawusage status"
+    Write-Host "  clawusage lang [english|chinese]"
     Write-Host "  clawusage auto on [minutes] [--interval N]"
     Write-Host "  clawusage auto set <minutes>"
     Write-Host "  clawusage auto off"
     Write-Host "  clawusage auto status"
+    Write-Host "  clawusage -help | --help | -h"
+}
+
+function Normalize-Language {
+    param([string]$Language)
+    if ([string]::IsNullOrWhiteSpace($Language)) { return "english" }
+    $v = $Language.Trim().ToLowerInvariant()
+    switch ($v) {
+        "en" { return "english" }
+        "english" { return "english" }
+        "zh" { return "chinese" }
+        "cn" { return "chinese" }
+        "chinese" { return "chinese" }
+        default { throw "Unsupported language: $Language. Use english or chinese." }
+    }
+}
+
+function Ensure-ConfigProperty {
+    param(
+        [Parameter(Mandatory = $true)]$Config,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)]$DefaultValue
+    )
+    if (-not ($Config.PSObject.Properties.Name -contains $Name)) {
+        $Config | Add-Member -NotePropertyName $Name -NotePropertyValue $DefaultValue
+    }
 }
 
 function Get-Config {
+    $config = $null
     if (Test-Path -LiteralPath $configPath) {
-        try { return (Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json) } catch {}
+        try { $config = (Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json) } catch {}
     }
-    return [pscustomobject]@{
-        idleMinutes = 10
-        intervalMinutes = 1
-        includeLocalTokens = $true
-        provider = "openai-codex"
-        taskName = $taskName
+    if ($null -eq $config) {
+        $config = [pscustomobject]@{
+            idleMinutes = 10
+            intervalMinutes = 1
+            includeLocalTokens = $true
+            provider = "openai-codex"
+            language = "english"
+            taskName = $taskName
+        }
     }
+
+    Ensure-ConfigProperty -Config $config -Name "idleMinutes" -DefaultValue 10
+    Ensure-ConfigProperty -Config $config -Name "intervalMinutes" -DefaultValue 1
+    Ensure-ConfigProperty -Config $config -Name "includeLocalTokens" -DefaultValue $true
+    Ensure-ConfigProperty -Config $config -Name "provider" -DefaultValue "openai-codex"
+    Ensure-ConfigProperty -Config $config -Name "language" -DefaultValue "english"
+    Ensure-ConfigProperty -Config $config -Name "taskName" -DefaultValue $taskName
+    $config.language = Normalize-Language -Language ([string]$config.language)
+    return $config
 }
 
 function Save-Config {
@@ -67,6 +111,7 @@ function Install-AutoTask {
         ("-File {0}" -f (Quote-Arg -Value $workerScript)),
         ("-IdleMinutes {0}" -f [int]$Config.idleMinutes),
         ("-Provider {0}" -f (Quote-Arg -Value ([string]($Config.provider)))),
+        ("-Language {0}" -f (Quote-Arg -Value ([string]($Config.language)))),
         ("-SessionsFile {0}" -f (Quote-Arg -Value $sessionsPath)),
         ("-StateFile {0}" -f (Quote-Arg -Value $workerStatePath))
     )
@@ -95,6 +140,7 @@ function Show-Status {
     $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction SilentlyContinue
     Write-Host ("task: {0}" -f $taskName)
     Write-Host ("enabled: {0}" -f ($(if ($null -ne $task) { "on" } else { "off" })))
+    Write-Host ("language: {0}" -f [string]$config.language)
     Write-Host ("idleMinutes: {0}" -f [int]$config.idleMinutes)
     Write-Host ("intervalMinutes: {0}" -f [int]$config.intervalMinutes)
     if ($null -ne $task) {
@@ -120,6 +166,20 @@ function Parse-Interval {
     return $interval
 }
 
+function Parse-MinutesToken {
+    param(
+        [string]$Token,
+        [int]$Default = 0
+    )
+    if ([string]::IsNullOrWhiteSpace($Token)) { return $Default }
+    $t = $Token.Trim().ToLowerInvariant()
+    if ($t -match "^(\d+)\s*(m|min|mins|minute|minutes)?$") {
+        $n = [int]$matches[1]
+        if ($n -ge 1) { return $n }
+    }
+    return $Default
+}
+
 if (-not (Test-Path -LiteralPath $monitorScript)) {
     throw "Missing script: $monitorScript"
 }
@@ -127,23 +187,60 @@ if (-not (Test-Path -LiteralPath $workerScript)) {
     throw "Missing script: $workerScript"
 }
 
-$cmd = if ($Args.Count -gt 0) { $Args[0].ToLowerInvariant() } else { "now" }
+$cmd = if ($Args.Count -gt 0) { $Args[0].ToLowerInvariant() } else { "status" }
 
 switch ($cmd) {
     "help" {
         Show-Help
         exit 0
     }
+    "-help" {
+        Show-Help
+        exit 0
+    }
+    "--help" {
+        Show-Help
+        exit 0
+    }
+    "-h" {
+        Show-Help
+        exit 0
+    }
     "now" {
+        $config = Get-Config
         $json = $false
         if ($Args.Count -gt 1 -and $Args[1] -eq "--json") {
             $json = $true
         }
         if ($json) {
-            & $monitorScript -IncludeLocalTokens -Json
+            & $monitorScript -IncludeLocalTokens -Json -Language $config.language
         } else {
-            & $monitorScript -IncludeLocalTokens
+            & $monitorScript -IncludeLocalTokens -Language $config.language
         }
+        exit 0
+    }
+    "status" {
+        $config = Get-Config
+        & $monitorScript -IncludeLocalTokens -Language $config.language
+        exit 0
+    }
+    "lang" {
+        $config = Get-Config
+        if ($Args.Count -lt 2) {
+            Write-Host ("language: {0}" -f [string]$config.language)
+            exit 0
+        }
+
+        $language = Normalize-Language -Language $Args[1]
+        $config.language = $language
+        Save-Config -Config $config
+
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($null -ne $task) {
+            Install-AutoTask -Config $config
+        }
+
+        Write-Host ("language: {0}" -f $language)
         exit 0
     }
     "auto" {
@@ -156,8 +253,8 @@ switch ($cmd) {
             "on" {
                 $config = Get-Config
                 if ($Args.Count -ge 3) {
-                    $tmp = 0
-                    if ([int]::TryParse($Args[2], [ref]$tmp) -and $tmp -ge 1) {
+                    $tmp = Parse-MinutesToken -Token $Args[2] -Default 0
+                    if ($tmp -ge 1) {
                         $config.idleMinutes = $tmp
                     }
                 }
@@ -171,8 +268,8 @@ switch ($cmd) {
                 if ($Args.Count -lt 3) {
                     throw "Usage: clawusage auto set <minutes>"
                 }
-                $minutes = 0
-                if (-not [int]::TryParse($Args[2], [ref]$minutes) -or $minutes -lt 1) {
+                $minutes = Parse-MinutesToken -Token $Args[2] -Default 0
+                if ($minutes -lt 1) {
                     throw "Idle minutes must be an integer >= 1."
                 }
                 $config = Get-Config

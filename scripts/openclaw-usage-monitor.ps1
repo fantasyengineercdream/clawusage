@@ -1,11 +1,13 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [switch]$Watch,
     [int]$IntervalSec = 30,
     [string]$Provider = "",
     [switch]$Json,
     [switch]$NoClear,
-    [switch]$IncludeLocalTokens
+    [switch]$IncludeLocalTokens,
+    [ValidateSet("english", "chinese")]
+    [string]$Language = "english"
 )
 
 Set-StrictMode -Version Latest
@@ -137,10 +139,13 @@ function Get-UsageSnapshot {
 function Show-Snapshot {
     param([Parameter(Mandatory = $true)]$Snapshot)
     Write-Host ("OpenClaw Usage Monitor  |  Updated: {0}" -f $Snapshot.UpdatedAt)
+    Write-Host ("Language mode: {0}" -f $Language)
+
     if (($Snapshot.Rows | Measure-Object).Count -eq 0) {
         Write-Host "No usage rows matched filter."
         return
     }
+
     $Snapshot.Rows |
         Sort-Object Provider, Window |
         Format-Table Provider, Plan, Window, UsedPercent, RemainingPercent, ResetAt, TimeLeft -AutoSize

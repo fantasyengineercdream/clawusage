@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDir = "$env:TEMP\openclaw-windows-hardlock-publish",
+    [string]$OutputDir = "$env:TEMP\clawusage-publish",
     [switch]$Force,
     [string]$Branch = "main"
 )
@@ -9,7 +9,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$zipName = "openclaw-windows-hardlock.zip"
+$zipName = "clawusage.zip"
 $outputResolved = [System.IO.Path]::GetFullPath($OutputDir)
 $rootResolved = [System.IO.Path]::GetFullPath($root)
 
@@ -54,7 +54,7 @@ try {
     if ([string]::IsNullOrWhiteSpace($userEmail)) { & git config user.email "openclaw-publisher@local" | Out-Null }
 
     & git add -A | Out-Null
-    & git commit -m "Initial release: OpenClaw Windows Hardlock + ClawUsage" | Out-Null
+    & git commit -m "Initial release: ClawUsage" | Out-Null
 
     Write-Host "Prepared standalone repo:" -ForegroundColor Green
     Write-Host "  $OutputDir"

@@ -1,5 +1,5 @@
 param(
-    [string]$Output = "openclaw-windows-hardlock.zip"
+    [string]$Output = "clawusage.zip"
 )
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -10,9 +10,8 @@ if (Test-Path -LiteralPath $dest) {
     Remove-Item -LiteralPath $dest -Force
 }
 
-# Exclude generated runtime state and existing release zip from package.
 $items = Get-ChildItem -LiteralPath $root -Force | Where-Object {
-    $_.Name -ne $destName -and $_.Name -ne ".openclaw-state"
+    $_.Name -ne $destName -and $_.Name -ne ".openclaw-state" -and $_.Name -ne ".publish-repo"
 }
 
 if (($items | Measure-Object).Count -eq 0) {
