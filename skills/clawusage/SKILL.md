@@ -16,7 +16,9 @@ Command source:
 Supported arguments:
 
 - `now`
+- `now live`
 - `status`
+- `status live`
 - `help`
 - `lang`
 - `lang english`

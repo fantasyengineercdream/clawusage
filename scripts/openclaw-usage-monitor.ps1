@@ -7,11 +7,18 @@ param(
     [switch]$NoClear,
     [switch]$IncludeLocalTokens,
     [ValidateSet("english", "chinese")]
-    [string]$Language = "english"
+    [string]$Language = "english",
+    [switch]$UseCache,
+    [int]$CacheMaxAgeSec = 300,
+    [string]$CacheFile = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($CacheFile)) {
+    $CacheFile = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.openclaw-state\clawusage-last-snapshot.json"))
+}
 
 function Format-TimeLeft {
     param([timespan]$Span)
@@ -26,6 +33,49 @@ function Format-TimeLeft {
         return ("{0}m {1}s" -f [int]$Span.TotalMinutes, $Span.Seconds)
     }
     return ("{0}s" -f [int]$Span.TotalSeconds)
+}
+
+function Get-CachedSnapshot {
+    if (-not $UseCache) { return $null }
+    if (-not (Test-Path -LiteralPath $CacheFile)) { return $null }
+    if ($CacheMaxAgeSec -lt 1) { return $null }
+
+    try {
+        $obj = Get-Content -LiteralPath $CacheFile -Raw | ConvertFrom-Json
+        if ($null -eq $obj) { return $null }
+        if (-not ($obj.PSObject.Properties.Name -contains "cachedAt")) { return $null }
+        if (-not ($obj.PSObject.Properties.Name -contains "snapshot")) { return $null }
+        $cachedAt = [datetimeoffset]::Parse([string]$obj.cachedAt)
+        $ageSec = [int]([datetimeoffset]::Now - $cachedAt).TotalSeconds
+        if ($ageSec -lt 0) { $ageSec = 0 }
+        if ($ageSec -gt $CacheMaxAgeSec) { return $null }
+
+        $snap = $obj.snapshot
+        if ($null -eq $snap) { return $null }
+        $snap | Add-Member -NotePropertyName FromCache -NotePropertyValue $true -Force
+        $snap | Add-Member -NotePropertyName CacheAgeSec -NotePropertyValue $ageSec -Force
+        return $snap
+    } catch {
+        return $null
+    }
+}
+
+function Save-SnapshotCache {
+    param([Parameter(Mandatory = $true)]$Snapshot)
+
+    try {
+        $cacheDir = Split-Path -Parent $CacheFile
+        if (-not [string]::IsNullOrWhiteSpace($cacheDir) -and -not (Test-Path -LiteralPath $cacheDir)) {
+            New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+        }
+
+        [pscustomobject]@{
+            cachedAt = [datetimeoffset]::Now.ToString("o")
+            snapshot = $Snapshot
+        } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $CacheFile -Encoding UTF8
+    } catch {
+        # Cache is best-effort only.
+    }
 }
 
 function Get-LocalTokenSummary {
@@ -140,6 +190,11 @@ function Show-Snapshot {
     param([Parameter(Mandatory = $true)]$Snapshot)
     Write-Host ("OpenClaw Usage Monitor  |  Updated: {0}" -f $Snapshot.UpdatedAt)
     Write-Host ("Language mode: {0}" -f $Language)
+    if ($Snapshot.PSObject.Properties.Name -contains "FromCache" -and [bool]$Snapshot.FromCache) {
+        Write-Host ("Source: cache ({0}s old)" -f [int]$Snapshot.CacheAgeSec)
+    } else {
+        Write-Host "Source: live"
+    }
 
     if (($Snapshot.Rows | Measure-Object).Count -eq 0) {
         Write-Host "No usage rows matched filter."
@@ -166,6 +221,9 @@ if ($Watch) {
         if (-not $NoClear) { Clear-Host }
         try {
             $snap = Get-UsageSnapshot
+            if ($UseCache) {
+                Save-SnapshotCache -Snapshot $snap
+            }
             if ($Json) {
                 $snap | ConvertTo-Json -Depth 8
             } else {
@@ -179,7 +237,13 @@ if ($Watch) {
     }
 }
 
-$single = Get-UsageSnapshot
+$single = Get-CachedSnapshot
+if ($null -eq $single) {
+    $single = Get-UsageSnapshot
+    if ($UseCache) {
+        Save-SnapshotCache -Snapshot $single
+    }
+}
 if ($Json) {
     $single | ConvertTo-Json -Depth 8
 } else {

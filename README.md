@@ -29,7 +29,9 @@ platform:
 Run from this folder:
 
 ```powershell
+.\clawusage.cmd
 .\clawusage.cmd now
+.\clawusage.cmd now --live
 .\clawusage.cmd status
 .\clawusage.cmd lang chinese
 .\clawusage.cmd lang english
@@ -42,8 +44,8 @@ Run from this folder:
 
 ## Commands
 
-- `clawusage now`: show current usage snapshot
-- `clawusage status`: alias of `now`
+- `clawusage now [live|--live]`: show usage snapshot (`live` bypasses cache)
+- `clawusage status [live|--live]`: alias of `now`
 - `clawusage lang [english|chinese]`: view/set output language
 - `clawusage auto on [minutes] [--interval N]`: enable idle reminder task
 - `clawusage auto set <minutes>`: change idle threshold
@@ -57,6 +59,7 @@ Defaults:
 - If enabled without `--interval`, check interval defaults to `5` minutes.
 - Running `clawusage` with no args defaults to `help`.
 - On first help display, a bilingual language setup tip is shown once.
+- `now/status` use a local cache by default (up to 5 minutes) for faster response.
 
 Language behavior:
 
@@ -100,6 +103,7 @@ clawusage/
     openclaw-usage-idle-popup.ps1
     install-idle-usage-task.ps1
     uninstall-idle-usage-task.ps1
+    repair-runtime.ps1
     publish-clawhub.ps1
     make-release-zip.ps1
     prepare-github-repo.ps1
@@ -126,6 +130,12 @@ Publish skill:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-clawhub.ps1
+```
+
+Repair local runtime (recommended after upgrades):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\repair-runtime.ps1
 ```
 
 ## License

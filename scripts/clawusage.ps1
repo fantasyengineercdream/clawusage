@@ -26,8 +26,9 @@ function Show-Help {
     Write-Host "clawusage (KISS mode)"
     Write-Host ""
     Write-Host "Usage:"
-    Write-Host "  clawusage now"
-    Write-Host "  clawusage status"
+    Write-Host "  clawusage                     (same as help)"
+    Write-Host "  clawusage now [live|--live]"
+    Write-Host "  clawusage status [live|--live]"
     Write-Host "  clawusage lang [english|chinese]"
     Write-Host "  clawusage auto on [minutes] [--interval N]   (default interval: 5)"
     Write-Host "  clawusage auto set <minutes>"
@@ -205,6 +206,28 @@ function Parse-MinutesToken {
     return $Default
 }
 
+function Invoke-ClawUsageMonitor {
+    param(
+        [switch]$Json,
+        [switch]$Live,
+        [Parameter(Mandatory = $true)][string]$Language
+    )
+
+    $invokeParams = @{
+        IncludeLocalTokens = $true
+        Language = $Language
+    }
+    if ($Json) {
+        $invokeParams.Json = $true
+    }
+    if (-not $Live) {
+        $invokeParams.UseCache = $true
+        $invokeParams.CacheMaxAgeSec = 300
+    }
+
+    & $monitorScript @invokeParams
+}
+
 if (-not (Test-Path -LiteralPath $monitorScript)) {
     throw "Missing script: $monitorScript"
 }
@@ -253,19 +276,14 @@ switch ($cmd) {
         exit 0
     }
     "now" {
-        $json = $false
-        if ($Args.Count -gt 1 -and $Args[1] -eq "--json") {
-            $json = $true
-        }
-        if ($json) {
-            & $monitorScript -IncludeLocalTokens -Json -Language $config.language
-        } else {
-            & $monitorScript -IncludeLocalTokens -Language $config.language
-        }
+        $json = ($Args -contains "--json")
+        $live = ($Args -contains "live" -or $Args -contains "--live")
+        Invoke-ClawUsageMonitor -Json:$json -Live:$live -Language $config.language
         exit 0
     }
     "status" {
-        & $monitorScript -IncludeLocalTokens -Language $config.language
+        $live = ($Args -contains "live" -or $Args -contains "--live")
+        Invoke-ClawUsageMonitor -Live:$live -Language $config.language
         exit 0
     }
     "lang" {

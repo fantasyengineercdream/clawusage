@@ -3,9 +3,9 @@ param(
     [string]$SkillPath = "",
     [string]$Slug = "clawusage-windows-hardlock",
     [string]$Name = "ClawUsage Windows Hardlock",
-    [string]$Version = "0.1.5",
+    [string]$Version = "0.1.6",
     [string]$Tags = "latest,windows,openclaw",
-    [string]$Changelog = "Default /clawusage to help and add one-time language setup hint.",
+    [string]$Changelog = "Default /clawusage to help, add one-time language hint, and support cached fast status.",
     [switch]$LoginIfNeeded
 )
 
